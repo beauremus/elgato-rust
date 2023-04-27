@@ -6,12 +6,6 @@ use mdns_sd::{ServiceDaemon, ServiceEvent};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
-#[derive(Debug, Serialize, Deserialize)]
-enum Power {
-    On,
-    Off,
-}
-
 #[derive(Debug, Serialize_repr, Deserialize_repr)]
 #[repr(u8)]
 enum Power {
