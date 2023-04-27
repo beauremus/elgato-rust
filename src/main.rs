@@ -39,43 +39,45 @@ async fn get_light_status(address: Ipv4Addr) -> Result<Command, reqwest::Error> 
 #[tokio::main]
 async fn main() {
     // Create a daemon
-    let mdns = ServiceDaemon::new().expect("Failed to create daemon");
+    let mdns: ServiceDaemon = ServiceDaemon::new().expect("Failed to create daemon");
 
     // Browse for a service type.
     let service_type = "_elg._tcp.local.";
     let receiver = mdns.browse(service_type).expect("Failed to browse");
+    let receiver: mdns_sd::Receiver<ServiceEvent> =
+        mdns.browse(service_type).expect("Failed to browse");
 
     while let Ok(event) = receiver.recv() {
         if let ServiceEvent::ServiceResolved(info) = event {
-                let addresses = info.get_addresses();
-                if let Some(address) = addresses.iter().next().cloned() {
-                    println!("Found Elgato Keylight Air at {}", address);
+            let addresses = info.get_addresses();
+            if let Some(address) = addresses.iter().next().cloned() {
+                println!("Found Elgato Keylight Air at {}", address);
 
-                    // Get the current status of the light
-                    // this allows us to fill the struct with the current values
-                    // The API requires that we send the entire struct back
-                    let mut status: Command = match get_light_status(address).await {
-                        Ok(status) => status,
-                        Err(error) => panic!("Problem getting light status: {:?}", error),
-                    };
-                    println!("{:?}", status);
+                // Get the current status of the light
+                // this allows us to fill the struct with the current values
+                // The API requires that we send the entire struct back
+                let mut status: Command = match get_light_status(address).await {
+                    Ok(status) => status,
+                    Err(error) => panic!("Problem getting light status: {:?}", error),
+                };
+                println!("{:?}", status);
 
-                    // Toggle the light power state
-                    match status.lights[0].on {
+                // Toggle the light power state
+                match status.lights[0].on {
                     Power::On => status.lights[0].on = Power::Off,
                     Power::Off => status.lights[0].on = Power::On,
-                    }
-                    println!("Lights toggled: {:?}", status.lights[0].on);
-
-                    // Make a PUT request to toggle the light power
-                    reqwest::Client::new()
-                        .put(&gen_url(address))
-                        .json(&status)
-                        .send()
-                        .await
-                        .ok();
                 }
-                return;
+                println!("Lights toggled: {:?}", status.lights[0].on);
+
+                // Make a PUT request to toggle the light power
+                reqwest::Client::new()
+                    .put(&gen_url(address))
+                    .json(&status)
+                    .send()
+                    .await
+                    .ok();
+            }
+            return;
         }
     }
 }
