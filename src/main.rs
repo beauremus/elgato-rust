@@ -4,6 +4,7 @@ use std::net::Ipv4Addr;
 
 use mdns_sd::{ServiceDaemon, ServiceEvent};
 use serde::{Deserialize, Serialize};
+use serde_repr::{Deserialize_repr, Serialize_repr};
 
 #[derive(Debug, Serialize, Deserialize)]
 enum Power {
@@ -11,13 +12,11 @@ enum Power {
     Off,
 }
 
-impl From<Power> for u8 {
-    fn from(f: Power) -> u8 {
-        match f {
-            Power::On => 1,
-            Power::Off => 0,
-        }
-    }
+#[derive(Debug, Serialize_repr, Deserialize_repr)]
+#[repr(u8)]
+enum Power {
+    Off = 0,
+    On = 1,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -38,12 +37,9 @@ fn gen_url(address: Ipv4Addr) -> String {
     format!("http://{}:9123/elgato/lights", address)
 }
 
-async fn get_light_status(address: Ipv4Addr) -> Result<Command, reqwest::Error>{
+async fn get_light_status(address: Ipv4Addr) -> Result<Command, reqwest::Error> {
     let url = gen_url(address);
-    reqwest::get(url)
-        .await?
-        .json::<Command>()
-        .await
+    reqwest::get(url).await?.json::<Command>().await
 }
 
 #[tokio::main]
@@ -56,8 +52,7 @@ async fn main() {
     let receiver = mdns.browse(service_type).expect("Failed to browse");
 
     while let Ok(event) = receiver.recv() {
-        match event {
-            ServiceEvent::ServiceResolved(info) => {
+        if let ServiceEvent::ServiceResolved(info) = event {
                 let addresses = info.get_addresses();
                 if let Some(address) = addresses.iter().next().cloned() {
                     println!("Found Elgato Keylight Air at {}", address);
@@ -73,8 +68,8 @@ async fn main() {
 
                     // Toggle the light power state
                     match status.lights[0].on {
-                        Power::On => { status.lights[0].on = Power::Off },
-                        Power::Off => { status.lights[0].on = Power::On },
+                    Power::On => status.lights[0].on = Power::Off,
+                    Power::Off => status.lights[0].on = Power::On,
                     }
                     println!("Lights toggled: {:?}", status.lights[0].on);
 
@@ -87,8 +82,6 @@ async fn main() {
                         .ok();
                 }
                 return;
-            }
-            _ => {}
         }
     }
 }
